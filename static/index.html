@@ -61,6 +61,8 @@
 		<script src='js/helpers.js'></script>
 		<script src="js/codemirror.js"></script>
 		<script src="js/glsl.js"></script>
+		<script src="js/sink.js"></script>
+		<script src="js/audio.js"></script>
 
 		<script id="example" type="x-shader/x-fragment">#ifdef GL_ES
 precision mediump float;
@@ -153,9 +155,17 @@ void main( void ) {
 			var code, canvas, gl, buffer, currentProgram, vertexPosition,
 			parameters = { startTime: Date.now(), time: 0, mouseX: 0.5, mouseY: 0.5, screenWidth: 0, screenHeight: 0 },
 			frontTarget, backTarget, screenProgram, getWebGL, resizer = {}, compileOnChangeCode = true;
+			
 
+			var audio = GLSLAudio.start(getPixelArray);
+			
 			init();
 			if (gl) { animate(); }
+			
+			
+			if(!audio) {
+				alert("Could not initialize audio.\nPlease use a recent version of Firefox.\nAudio controls will not be displayed.");
+			}
 
 			function init() {
 
@@ -184,6 +194,43 @@ void main( void ) {
 				var rightside = document.createElement( 'div' );
 				rightside.style.cssFloat = 'right';
 				toolbar.appendChild( rightside );
+				
+				
+				if(audio) {
+					var bitSelect = document.createElement( 'select' );
+					
+					var option = document.createElement( 'option');
+					option.textContent = "8 Bit Audio (R, G)"
+					bitSelect.appendChild( option );
+					
+					option = document.createElement( 'option');
+					option.textContent = "16 Bit Audio (RG, BA)";
+					option.selected = audio.do16Bit;
+					bitSelect.appendChild( option );
+	
+					bitSelect.addEventListener( 'change', function ( event ) {
+						audio.do16Bit = event.target.selectedIndex == 1
+					}, false );
+					
+					rightside.appendChild( bitSelect );
+					
+					var audioButton = document.createElement( 'button' );
+					audioButton.textContent = 'play audio'
+					audioButton.title = 'Plays the texture as audio buffer'
+					audioButton.addEventListener( 'click', function ( event ) {
+						if(!audio.isPlaying) {
+							audioButton.textContent = 'pause audio';
+							audio.play();
+						} else {
+							audioButton.textContent = 'play audio';
+							audio.pause();
+						}
+					}, false );
+					
+					rightside.appendChild( audioButton );
+					
+					audioButton.style.width = "110px";
+				}
 
 				fullscreenButton = document.createElement( 'button' );
 				fullscreenButton.textContent = 'fullscreen';
@@ -201,9 +248,14 @@ void main( void ) {
 				}, false );
 
 				rightside.appendChild( fullscreenButton );
+				
+				var github = document.createElement( 'a' );
+				github.textContent = "github";
+				github.href = 'https://github.com/cappelnord/glsl-sandbox';
+				rightside.appendChild( github );
 
 				var button = document.createElement( 'a' );
-				button.textContent = 'gallery';
+				button.textContent = 'original gallery';
 				button.href = 'http://glsl.heroku.com/';
 				rightside.appendChild( button );
 
@@ -435,6 +487,7 @@ void main( void ) {
 				cacheUniformLocation( program, 'mouse' );
 				cacheUniformLocation( program, 'resolution' );
 				cacheUniformLocation( program, 'backbuffer' );
+				cacheUniformLocation( program, 'do16bit' );
 
 				// Load program into GPU
 
@@ -445,6 +498,10 @@ void main( void ) {
 				gl.bindBuffer( gl.ARRAY_BUFFER, buffer );
 				gl.vertexAttribPointer( vertexPosition, 2, gl.FLOAT, false, 0, 0 );
 				gl.enableVertexAttribArray( vertexPosition );
+				
+				if(audio) {
+					audio.updateOnNextFrame = true;
+				}
 
 			}
 
@@ -661,6 +718,10 @@ void main( void ) {
 					createRenderTargets();
 					
 				}
+				
+				if(audio) {
+					audio.updateOnNextFrame = true;
+				}
 			}
 
 			//
@@ -686,6 +747,10 @@ void main( void ) {
 				gl.uniform2f( currentProgram.uniformsCache[ 'mouse' ], parameters.mouseX, parameters.mouseY );
 				gl.uniform2f( currentProgram.uniformsCache[ 'resolution' ], parameters.screenWidth, parameters.screenHeight );
 				gl.uniform1i( currentProgram.uniformsCache[ 'backbuffer' ], 0 );
+				if(audio) {
+					gl.uniform1i( currentProgram.uniformsCache[ 'do16bit' ], audio.do16Bit);
+				}
+				
 
 				gl.activeTexture( gl.TEXTURE0 );
 				gl.bindTexture( gl.TEXTURE_2D, backTarget.texture );
@@ -713,6 +778,13 @@ void main( void ) {
 
 				gl.clear( gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT );
 				gl.drawArrays( gl.TRIANGLES, 0, 6 );
+				
+				if(audio) {
+					if(audio.updateOnNextFrame == true) {
+						audio.update();
+						audio.updateOnNextFrame = false;
+					}
+				}
 
 				// Swap buffers
 
@@ -720,6 +792,19 @@ void main( void ) {
 				frontTarget = backTarget;
 				backTarget = tmp;
 
+			}
+			
+			function getPixelArray() {
+			
+				var audioArray = new Uint8Array(parameters.screenWidth * parameters.screenHeight * 4);
+			
+				// read anything into an array
+				gl.bindFramebuffer( gl.FRAMEBUFFER, frontTarget.framebuffer );
+
+				gl.readPixels(0, 0, parameters.screenWidth, parameters.screenHeight, gl.RGBA, gl.UNSIGNED_BYTE, audioArray);
+				gl.bindFramebuffer( gl.FRAMEBUFFER, null );
+				
+				return audioArray;
 			}
 
 		</script>
