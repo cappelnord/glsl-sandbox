@@ -56,7 +56,7 @@ GLSLAudio.start = function (getArrayFunc) {
 	}
 	
 	try {
-		sink = Sink(audio_callback, 2, 4096 * 4, that.sampleRate);
+		sink = Sink(audio_callback, 2, 4096 * 8, that.sampleRate);
 	} catch (e) {
 		// alert(e);
 		return undefined;
@@ -78,7 +78,7 @@ GLSLAudio.buffer = function (host, audioArray, fadeTime) {
 	
 	var do16Bit = host.do16Bit;
 	
-	var overlapFade = 0.5;
+	var overlapFade = 0.9;
 	
 	var volumeFunc = function(value) {
 		// return value; // linear
@@ -94,7 +94,7 @@ GLSLAudio.buffer = function (host, audioArray, fadeTime) {
 	}
 	
 	that.fadeOut = function (fadeTime) {
-		fadeTime = fadeTime || 0.5;
+		fadeTime = fadeTime || 0.3;
 		deltaLevel = -1 / host.sampleRate / fadeTime;
 		that.isFadingOut = true;
 	};
@@ -111,7 +111,7 @@ GLSLAudio.buffer = function (host, audioArray, fadeTime) {
 				deltaLevel = 0.0;
 				that.isPlaying = false;
 			}
-			var volume = volumeFunc(level) * 0.9;
+			var volume = volumeFunc(level) * 0.8;
 			
 			if(that.isPlaying) {
 				buffer[i] = buffer[i] + get_float_sample(audioArray, curFrame, 0) * volume;
