@@ -58,7 +58,7 @@ GLSLAudio.start = function (getArrayFunc) {
 	try {
 		sink = Sink(audio_callback, 2, 4096 * 8, that.sampleRate);
 	} catch (e) {
-		// alert(e);
+		console.log(e);
 		return undefined;
 	}
 
